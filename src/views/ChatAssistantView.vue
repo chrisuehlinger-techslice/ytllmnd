@@ -173,7 +173,7 @@ const processMessageContent = (message: any) => {
   let content = message.content
   const toolRegex = /\[(\w+):\s*([^\]]+)\]/g
   
-  content = content.replace(toolRegex, (match, tool, args) => {
+  content = content.replace(toolRegex, (match: string, tool: string, args: string) => {
     const toolLower = tool.toLowerCase()
     let result = 'Processing...'
     

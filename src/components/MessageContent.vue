@@ -11,7 +11,7 @@
               <path v-else d="M8 16a2 2 0 002-2h-2V2a2 2 0 00-2 2v1H4a2 2 0 00-2 2v1a2 2 0 002 2h2v1H4a2 2 0 00-2 2v1a2 2 0 002 2h2v1a2 2 0 002 2zm6-11a1 1 0 100-2 1 1 0 000 2zm0 4a1 1 0 100-2 1 1 0 000 2z"/>
             </svg>
             <span class="tool-name">{{ part.tool }}</span>
-            <span class="tool-args">{{ part.args.join(', ') }}</span>
+            <span class="tool-args">{{ part.args?.join(', ') || '' }}</span>
           </div>
           <div v-if="part.result" class="tool-result">
             <svg class="result-arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -47,6 +47,8 @@ const processedContent = computed(() => {
   if (props.role !== 'assistant') return null
   return parseToolInvocations(props.content)
 })
+
+import { ref } from 'vue'
 
 // Store processed tools with results
 const toolResults = ref<Map<string, string>>(new Map())

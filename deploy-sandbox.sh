@@ -40,7 +40,7 @@ npm run build
 
 # Deploy to Amplify sandbox
 echo "☁️  Starting Amplify sandbox..."
-npx ampx sandbox --profile=$AWS_PROFILE
+npx ampx sandbox --profile=$AWS_PROFILE --once
 
 echo ""
 echo "✅ Deployment complete!"
