@@ -61,7 +61,9 @@
             </div>
             <div class="message-body">
               <div class="message-role">{{ message.role === 'user' ? 'You' : 'Assistant' }}</div>
-              <div class="message-content">{{ message.content }}</div>
+              <div class="message-content">
+                <MessageContent :content="message.content" :role="message.role" />
+              </div>
               <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
           </div>
@@ -99,6 +101,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { generateClient } from 'aws-amplify/data'
 import type { Schema } from '../../amplify/data/resource'
+import MessageContent from '../components/MessageContent.vue'
 
 const route = useRoute()
 const client = generateClient<Schema>()
