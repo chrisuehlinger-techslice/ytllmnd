@@ -4,15 +4,61 @@
       <div class="hero-content">
         <div class="logo-container">
           <div class="logo">
-            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="60" height="60" rx="16" fill="url(#gradient)"/>
-              <path d="M20 40V20L30 30L40 20V40" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg width="120" height="120" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <!-- Gradient definitions -->
               <defs>
-                <linearGradient id="gradient" x1="0" y1="0" x2="60" y2="60">
-                  <stop stop-color="#6366f1"/>
-                  <stop offset="1" stop-color="#4f46e5"/>
+                <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#4f46e5;stop-opacity:1" />
                 </linearGradient>
+                <radialGradient id="eyeGlow">
+                  <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.8" />
+                  <stop offset="100%" style="stop-color:#10b981;stop-opacity:0" />
+                </radialGradient>
               </defs>
+              
+              <!-- Background -->
+              <rect width="32" height="32" rx="8" fill="url(#bgGrad)"/>
+              
+              <!-- Dog with sunglasses (cool AI dog) -->
+              <g transform="translate(16, 17)">
+                <!-- Shadow -->
+                <ellipse cx="0" cy="10" rx="8" ry="2" fill="rgba(0,0,0,0.2)"/>
+                
+                <!-- Ears -->
+                <path d="M -8,-8 Q -12,-5 -8,0" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                <path d="M 8,-8 Q 12,-5 8,0" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                
+                <!-- Head -->
+                <circle cx="0" cy="0" r="9" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+                
+                <!-- Sunglasses -->
+                <rect x="-7" y="-3" width="14" height="5" rx="2" fill="#1e293b"/>
+                <rect x="-7" y="-3" width="6" height="5" rx="2" fill="#374151"/>
+                <rect x="1" y="-3" width="6" height="5" rx="2" fill="#374151"/>
+                <line x1="-1" y1="-1" x2="1" y2="-1" stroke="#1e293b" stroke-width="1"/>
+                
+                <!-- Cool reflection in sunglasses -->
+                <rect x="-6" y="-2" width="2" height="1" rx="0.5" fill="#60a5fa" opacity="0.6"/>
+                <rect x="2" y="-2" width="2" height="1" rx="0.5" fill="#60a5fa" opacity="0.6"/>
+                
+                <!-- Nose -->
+                <ellipse cx="0" cy="3" rx="1.5" ry="1" fill="#92400e"/>
+                
+                <!-- Smile -->
+                <path d="M -3,4 Q 0,6 3,4" stroke="#92400e" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                
+                <!-- Binary collar tag -->
+                <ellipse cx="0" cy="9" rx="3" ry="2" fill="#10b981"/>
+                <text x="0" y="10" font-family="monospace" font-size="2.5" fill="white" text-anchor="middle">01</text>
+              </g>
+              
+              <!-- Sparkles for extra fun -->
+              <g opacity="0.8">
+                <path d="M 6,6 L 7,5 L 8,6 L 7,7 Z" fill="white"/>
+                <path d="M 24,8 L 25,7 L 26,8 L 25,9 Z" fill="white"/>
+                <path d="M 8,24 L 9,23 L 10,24 L 9,25 Z" fill="white"/>
+              </g>
             </svg>
           </div>
         </div>
@@ -171,8 +217,13 @@ const useExample = (type: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.1));
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.15));
   animation: slideUp 0.8s ease-out;
+  transition: transform 0.3s ease;
+}
+
+.logo:hover {
+  transform: scale(1.05) rotate(2deg);
 }
 
 .hero-title {
