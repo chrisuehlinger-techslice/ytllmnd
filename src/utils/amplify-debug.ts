@@ -16,7 +16,7 @@ export function setupAmplifyDebugging() {
     const { payload } = data
     
     if (payload.event === CONNECTION_STATE_CHANGE) {
-      const connectionState = payload.data.connectionState as ConnectionState
+      const connectionState = (payload.data as any).connectionState as ConnectionState
       console.log('[Connection State Change]', connectionState)
       
       // Display user-friendly status

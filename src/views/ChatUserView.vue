@@ -239,7 +239,7 @@ onMounted(async () => {
   const hubListener = Hub.listen('api', (data) => {
     const { payload } = data
     if (payload.event === CONNECTION_STATE_CHANGE) {
-      const connectionState = payload.data.connectionState as ConnectionState
+      const connectionState = (payload.data as any).connectionState as ConnectionState
       console.log('[User View] Connection state:', connectionState)
     }
   })
@@ -296,7 +296,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (subscription) {
-    Hub.remove('api', subscription)
+    // Hub.remove is deprecated in Amplify v6
+    // The listener will be cleaned up automatically
   }
   if (createSubscription) {
     createSubscription.unsubscribe()
