@@ -1,5 +1,7 @@
 <template>
   <div class="chat-container">
+    <!-- Debug component - remove in production -->
+    <SubscriptionTest v-if="showDebug" :chat-id="chatId" />
     <div class="chat-header">
       <div class="header-content">
         <div class="header-left">
@@ -68,9 +70,12 @@ Send a message below to begin chatting with the AI assistant.</template><templat
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import SubscriptionTest from '../components/SubscriptionTest.vue'
 import { useRoute } from 'vue-router'
 import { generateClient } from 'aws-amplify/data'
+import { Hub } from 'aws-amplify/utils'
+import { CONNECTION_STATE_CHANGE, ConnectionState } from 'aws-amplify/data'
 import type { Schema } from '../../amplify/data/resource'
 
 const route = useRoute()
@@ -82,8 +87,11 @@ const isSending = ref(false)
 const systemPrompt = ref('')
 const messagesContainer = ref<HTMLElement>()
 let subscription: any = null
+let createSubscription: any = null
+let updateSubscription: any = null
 
 const chatId = route.params.chatId as string
+const showDebug = computed(() => import.meta.env.DEV && import.meta.env.VITE_SHOW_DEBUG !== 'false')
 
 const loadChat = async () => {
   try {
@@ -118,16 +126,42 @@ const sendMessage = async () => {
   newMessage.value = ''
   
   try {
-    await client.models.Message.create({
+    console.log('[User View] Sending message:', { chatId, content: messageContent })
+    const { data, errors } = await client.models.Message.create({
       chatId,
       content: messageContent,
       role: 'user',
       timestamp: new Date().toISOString()
     })
+    
+    if (errors) {
+      console.error('[User View] GraphQL errors:', errors)
+      throw new Error('Failed to create message: ' + errors.map(e => e.message).join(', '))
+    }
+    
+    if (!data) {
+      console.error('[User View] No data returned from create')
+      throw new Error('No data returned from message creation')
+    }
+    
+    console.log('[User View] Message created successfully:', data)
+    
+    // Manually add to local messages if subscription hasn't picked it up
+    setTimeout(() => {
+      const exists = messages.value.some(m => m.id === data.id)
+      if (!exists) {
+        console.log('[User View] Adding message manually to local state')
+        messages.value.push(data)
+        messages.value.sort((a, b) => 
+          new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime()
+        )
+        scrollToBottom()
+      }
+    }, 500)
   } catch (error) {
-    console.error('Error sending message:', error)
+    console.error('[User View] Error sending message:', error)
     newMessage.value = messageContent
-    alert('Failed to send message. Please try again.')
+    alert(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`)
   } finally {
     isSending.value = false
   }
@@ -197,25 +231,78 @@ const processMessageContent = (message: any) => {
   return content
 }
 
-onMounted(() => {
-  loadChat()
-  loadMessages()
+onMounted(async () => {
+  await loadChat()
+  await loadMessages()
   
-  subscription = client.models.Message.observeQuery({
-    filter: { chatId: { eq: chatId } }
-  }).subscribe({
-    next: ({ items }) => {
-      messages.value = items.sort((a, b) => 
-        new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime()
-      )
-      scrollToBottom()
+  // Monitor connection state
+  const hubListener = Hub.listen('api', (data) => {
+    const { payload } = data
+    if (payload.event === CONNECTION_STATE_CHANGE) {
+      const connectionState = payload.data.connectionState as ConnectionState
+      console.log('[User View] Connection state:', connectionState)
     }
   })
+  
+  // Use direct subscriptions instead of observeQuery for better cross-client sync
+  createSubscription = client.models.Message.onCreate().subscribe({
+    next: (data) => {
+      console.log('[User View] New message received via subscription:', {
+        id: data.id,
+        chatId: data.chatId,
+        role: data.role,
+        content: data.content?.substring(0, 50) + '...'
+      })
+      if (data.chatId === chatId) {
+        // Check if message already exists to avoid duplicates
+        const exists = messages.value.some(m => m.id === data.id)
+        if (!exists) {
+          console.log('[User View] Adding message to local state')
+          messages.value.push(data)
+          messages.value.sort((a, b) => 
+            new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime()
+          )
+          scrollToBottom()
+        } else {
+          console.log('[User View] Message already exists, skipping')
+        }
+      } else {
+        console.log('[User View] Message is for different chat:', data.chatId, 'vs', chatId)
+      }
+    },
+    error: (error) => {
+      console.error('[User View] Create subscription error:', error)
+    }
+  })
+  
+  updateSubscription = client.models.Message.onUpdate().subscribe({
+    next: (data) => {
+      console.log('[User View] Message updated:', data)
+      if (data.chatId === chatId) {
+        const index = messages.value.findIndex(m => m.id === data.id)
+        if (index !== -1) {
+          messages.value[index] = data
+        }
+      }
+    },
+    error: (error) => {
+      console.error('[User View] Update subscription error:', error)
+    }
+  })
+  
+  // Store hub listener for cleanup
+  subscription = hubListener
 })
 
 onUnmounted(() => {
   if (subscription) {
-    subscription.unsubscribe()
+    Hub.remove('api', subscription)
+  }
+  if (createSubscription) {
+    createSubscription.unsubscribe()
+  }
+  if (updateSubscription) {
+    updateSubscription.unsubscribe()
   }
 })
 </script>
