@@ -30,43 +30,14 @@
     <div class="chat-body">
       <div class="messages-wrapper">
         <div class="messages-container" ref="messagesContainer">
-          <div v-if="messages.length === 0" class="empty-state">
-            <div class="empty-icon">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M8 14h32a2 2 0 012 2v20a2 2 0 01-2 2H8a2 2 0 01-2-2V16a2 2 0 012-2z"/>
-                <path d="M24 22v8m-4-4h8"/>
-              </svg>
-            </div>
-            <h3>Start a conversation</h3>
-            <p>Send a message below to begin chatting with the AI assistant</p>
-          </div>
-          
-          <div
-            v-for="message in messages"
-            :key="message.id"
-            :class="['message', message.role]"
-          >
-            <div class="message-avatar">
-              <div v-if="message.role === 'user'" class="avatar user-avatar">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-                </svg>
-              </div>
-              <div v-else class="avatar assistant-avatar">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
-                  <path d="M12 2.252A8 8 0 0117.748 8H12V2.252z"/>
-                </svg>
-              </div>
-            </div>
-            <div class="message-body">
-              <div class="message-role">{{ message.role === 'user' ? 'You' : 'Assistant' }}</div>
-              <div class="message-content">
-                <MessageContent :content="message.content" :role="message.role" />
-              </div>
-              <div class="message-time">{{ formatTime(message.timestamp) }}</div>
-            </div>
-          </div>
+          <pre class="chat-stream"><template v-if="systemPrompt"><span class="role-header">[SYSTEM]</span>
+{{ systemPrompt }}
+</template><template v-if="messages.length === 0 && !systemPrompt">Waiting for messages...
+
+Send a message below to begin chatting with the AI assistant.</template><template v-for="message in messages" :key="message.id">
+<span class="role-header">[{{ message.role.toUpperCase() }}]</span>
+{{ processMessageContent(message) }}
+</template></pre>
         </div>
       </div>
     </div>
@@ -101,7 +72,6 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { generateClient } from 'aws-amplify/data'
 import type { Schema } from '../../amplify/data/resource'
-import MessageContent from '../components/MessageContent.vue'
 
 const route = useRoute()
 const client = generateClient<Schema>()
@@ -109,10 +79,22 @@ const client = generateClient<Schema>()
 const messages = ref<any[]>([])
 const newMessage = ref('')
 const isSending = ref(false)
+const systemPrompt = ref('')
 const messagesContainer = ref<HTMLElement>()
 let subscription: any = null
 
 const chatId = route.params.chatId as string
+
+const loadChat = async () => {
+  try {
+    const { data: chat } = await client.models.Chat.get({ id: chatId })
+    if (chat) {
+      systemPrompt.value = chat.systemPrompt
+    }
+  } catch (error) {
+    console.error('Error loading chat:', error)
+  }
+}
 
 const loadMessages = async () => {
   try {
@@ -174,7 +156,49 @@ const copyLink = () => {
   alert('Assistant link copied to clipboard!')
 }
 
+const processMessageContent = (message: any) => {
+  if (message.role !== 'assistant') {
+    return message.content
+  }
+  
+  // Process tool invocations for assistant messages
+  let content = message.content
+  const toolRegex = /\[(\w+):\s*([^\]]+)\]/g
+  
+  content = content.replace(toolRegex, (match, tool, args) => {
+    const toolLower = tool.toLowerCase()
+    let result = 'Processing...'
+    
+    // Simple inline tool processing for display
+    if (toolLower === 'calculator' || toolLower === 'calc') {
+      try {
+        const sanitized = args.replace(/[^0-9+\-*/().\s]/g, '')
+        const calcResult = Function('"use strict"; return (' + sanitized + ')')()
+        result = isNaN(calcResult) || !isFinite(calcResult) ? 'Error' : calcResult.toString()
+      } catch {
+        result = 'Error'
+      }
+    } else if (toolLower === 'search' || toolLower === 'web') {
+      // Mock search results
+      const mockResults: Record<string, string> = {
+        'weather today': 'Partly cloudy, 72°F',
+        'latest news': 'Tech stocks rise',
+        'python tutorial': 'Visit python.org'
+      }
+      const query = args.toLowerCase().trim()
+      result = mockResults[query] || 'No results found'
+    } else if (toolLower === 'fetch' || toolLower === 'fetchwebpage' || toolLower === 'webpage') {
+      result = '[Content would be fetched]'
+    }
+    
+    return `${match} → ${result}`
+  })
+  
+  return content
+}
+
 onMounted(() => {
+  loadChat()
   loadMessages()
   
   subscription = client.models.Message.observeQuery({
@@ -286,112 +310,26 @@ onUnmounted(() => {
 .messages-container {
   height: 100%;
   overflow-y: auto;
-  padding: 2rem;
-  scroll-behavior: smooth;
+  background: #1e1e1e;
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.empty-icon {
-  margin-bottom: 1.5rem;
-  color: var(--text-muted);
-}
-
-.empty-state h3 {
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.empty-state p {
-  max-width: 400px;
-}
-
-.message {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.message.user {
-  flex-direction: row-reverse;
-}
-
-.message-avatar {
-  flex-shrink: 0;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
-}
-
-.user-avatar {
-  background: var(--primary-light);
-  color: var(--primary-hover);
-}
-
-.assistant-avatar {
-  background: var(--secondary-light);
-  color: var(--secondary-hover);
-}
-
-.message-body {
-  flex: 1;
-  max-width: 70%;
-}
-
-.message.user .message-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.message-role {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.message-content {
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius);
-  font-size: 0.9375rem;
+.chat-stream {
+  margin: 0;
+  padding: 1rem;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+  font-size: 14px;
   line-height: 1.6;
+  color: #d4d4d4;
+  white-space: pre-wrap;
   word-wrap: break-word;
 }
 
-.message.user .message-content {
-  background: var(--primary-color);
-  color: white;
-  border-bottom-right-radius: var(--radius-sm);
-}
-
-.message.assistant .message-content {
-  background: var(--background);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-bottom-left-radius: var(--radius-sm);
-}
-
-.message-time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
+.role-header {
+  color: #569cd6;
+  font-weight: bold;
+  display: inline-block;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
 }
 
 .chat-input {
